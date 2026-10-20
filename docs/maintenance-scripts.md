@@ -4,6 +4,7 @@ These talk to the real stack with the management token and are separate from the
 
 ```bash
 npm run live:scan                                        # read-only smoke test, prints counts only
+npm run live:seo                                         # read-only: SEO / AI-discoverability audit of the live stack (counts + one example per rule)
 npm run cs:backup                                        # read-only: every en-us + fr-fr entry and the schemas
 npm run cs:degrade  -- backups/<ts>                      # PREVIEW: blank ~10% of fr-fr text fields
 npm run cs:degrade  -- backups/<ts> --apply              # write drafts + degrade-manifest.json

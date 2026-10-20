@@ -170,6 +170,9 @@ export type IssueStatus = "missing" | "incomplete" | "stale" | "unpublished" | "
 
 export interface TranslationProposal {
   id: string;
+  /** "translate" (default) or "seo" (a rewrite/generation for an SEO finding). */
+  task?: "translate" | "seo";
+  ruleId?: string;
   issueId: string;
   unitKey: string;
   pointer: ContentPointer;
@@ -213,6 +216,77 @@ export interface AuditEvent {
   nextState: ProposalState;
   comment?: string;
   at: string;
+}
+
+// ---------- SEO & AI discoverability ----------
+
+export interface SeoTextField {
+  path: string;
+  text: string;
+}
+
+/** Everything the audit needs about one master-locale entry, extracted during the scan (no raw content kept beyond short excerpts). */
+export interface SeoFacts {
+  id: string; // `${ct}/${uid}`
+  contentTypeUid: string;
+  contentTypeTitle: string;
+  uid: string;
+  title: string;
+  locale: string;
+  // classification (derived from the schema, never from content-type names)
+  pageLike: boolean;
+  articleLike: boolean;
+  faqLike: boolean;
+  productLike: boolean;
+  // fields: `null` = the schema has no such field; `{text:""}` = field exists but is empty
+  metaTitle: SeoTextField | null;
+  metaDescription: (SeoTextField & { source: "meta" | "description" }) | null;
+  url: SeoTextField | null;
+  indexable?: boolean;
+  author: { fieldExists: boolean; present: boolean };
+  date: { fieldExists: boolean; iso?: string };
+  summaryPresent: boolean;
+  images: { path: string; hasAltField: boolean; alt?: string }[];
+  body: {
+    words: number;
+    paragraphs: number;
+    longestParagraphWords: number;
+    headings: number[];
+    hasList: boolean;
+    genericLinks: string[];
+  };
+  faq?: { question: string; firstParagraphWords: number; firstSentenceWords: number; answerWords: number };
+  sku: boolean;
+  /** Short excerpt used as grounding for AI suggestions (only sent with consent). */
+  excerpt: string;
+}
+
+export type SeoCategory = "seo" | "ai";
+
+export interface SeoFinding {
+  id: string;
+  ruleId: string;
+  category: SeoCategory;
+  severity: Severity;
+  /** Entry id, or `ct:<uid>` for content-type (schema) findings. */
+  entryId: string;
+  contentTypeUid: string;
+  contentTypeTitle: string;
+  entryUid?: string;
+  title: string;
+  locale: string;
+  message: string;
+  evidence: string[];
+  /** Current value of the field the finding is about, if any. */
+  current?: string;
+  fieldPath?: string;
+  fieldLabel?: string;
+  /** AI suggestions exist only for plain text fields. */
+  proposable: boolean;
+  suggestion?: { kind: "rewrite" | "generate"; target: "meta_title" | "meta_description"; min: number; max: number };
+  excerpt?: string;
+  penalty: number;
+  status: "open" | "resolved";
 }
 
 // ---------- Reference graph ----------
@@ -267,6 +341,8 @@ export interface Snapshot {
   limits: string[];
   units: TranslatableUnit[];
   entryLocales: EntryLocaleState[];
+  /** Audit facts for master-locale entries. Absent on snapshots created before this feature. */
+  seo?: SeoFacts[];
   /** Built from master-locale entries during the scan. Absent on snapshots created before this feature. */
   graph?: ReferenceGraph;
   /** Policy disclosures shown next to coverage numbers. */

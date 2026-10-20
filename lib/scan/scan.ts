@@ -1,5 +1,6 @@
 import type { ContentstackAdapter } from "@/lib/adapters/contentstack-adapter";
 import { buildGraph } from "@/lib/domain/graph";
+import { extractSeoFacts } from "@/lib/domain/seo";
 import { buildUnits } from "@/lib/domain/rules";
 import { EXCLUSION_POLICY_NOTE } from "@/lib/domain/normalizer";
 import type { NormalizedEntry, ScanError, ScanProgress, Snapshot } from "@/lib/domain/types";
@@ -116,6 +117,12 @@ export async function runScan(adapter: ContentstackAdapter, opts: ScanOptions): 
   const graph = buildGraph({ contentTypes: allTypes, entries: sourceEntries, completeTypes });
   graph.note = `References are read from ${ctx.masterLocale} entries (reference fields, JSON RTE embeds, file fields).${truncatedTypes.size || failedTypes.size ? " Some content types were not fully scanned; their targets are shown as unverified rather than broken." : ""}`;
 
+  const ctByUid = new Map(allTypes.map((c) => [c.uid, c]));
+  const seo = sourceEntries.flatMap((e) => {
+    const ct = ctByUid.get(e.contentTypeUid);
+    return ct ? [extractSeoFacts(ct, e)] : [];
+  });
+
   const unknown = entryLocales.filter((e) => e.existence === "unknown").length;
   if (unknown) errors.push({ scope: "coverage", message: `${unknown} entry×locale combination(s) have unknown localization state and are excluded from coverage.` });
 
@@ -128,7 +135,7 @@ export async function runScan(adapter: ContentstackAdapter, opts: ScanOptions): 
     environment: ctx.environmentName,
     startedAt, completedAt: now().toISOString(),
     status: errors.length ? "partial" : "complete",
-    errors, limits, units, entryLocales, graph,
+    errors, limits, units, entryLocales, graph, seo,
     policy: { criticalLocales: opts.criticalLocales, exclusions: EXCLUSION_POLICY_NOTE },
   };
 }

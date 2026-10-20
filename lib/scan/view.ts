@@ -35,7 +35,8 @@ export interface View {
   kpis: Kpis;
 }
 
-export function buildView(snapshot: Snapshot, proposalList: TranslationProposal[], now: Date): View {
+export function buildView(snapshot: Snapshot, allProposals: TranslationProposal[], now: Date): View {
+  const proposalList = allProposals.filter((p) => p.task !== "seo"); // SEO suggestions have their own view
   const byUnit = new Map(proposalList.map((p) => [p.unitKey, p]));
   const applied = new Map(
     proposalList.filter((p) => p.appliedToDemo && snapshot.mode === "demo").map((p) => [p.unitKey, effectiveText(p)]),

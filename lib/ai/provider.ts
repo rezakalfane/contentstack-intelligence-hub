@@ -1,5 +1,6 @@
 import "server-only";
 import type { Env, ReasoningEffort } from "@/lib/security/env";
+import type { ZodType } from "zod";
 import { buildMessages, OUTPUT_JSON_SCHEMA, type TranslationRequest } from "./translator";
 import { TranslationOutputSchema, type TranslationOutput } from "./validation";
 
@@ -54,8 +55,8 @@ export async function probeModel(env: Env, fetchImpl: typeof fetch = fetch): Pro
   }
 }
 
-export interface ProviderResult {
-  output: TranslationOutput;
+export interface ProviderResult<T = TranslationOutput> {
+  output: T;
   model: string;
   inputTokens?: number;
   outputTokens?: number;
@@ -71,23 +72,26 @@ interface ResponsesBody {
   error?: { message?: string; code?: string };
 }
 
-export async function requestTranslation(
+/**
+ * One hardened path for every model call: key check, model probe (fail closed), strict JSON-schema output,
+ * Zod validation, usage capture. Effort comes from env only. Never substitutes a model or drops a parameter.
+ */
+export async function requestStructured<T>(
   env: Env,
-  req: TranslationRequest,
+  req: { system: string; user: string; schemaName: string; jsonSchema: object; zod: ZodType<T> },
   fetchImpl: typeof fetch = fetch,
-): Promise<ProviderResult> {
+): Promise<ProviderResult<T>> {
   if (!env.OPENAI_API_KEY) throw new AiError("not_configured", "OPENAI_API_KEY is not set in .env.local", 503);
   const probe = await probeModel(env, fetchImpl);
   if (!probe.ok) throw new AiError("model_unavailable", probe.message, 502);
 
-  const { system, user } = buildMessages(req);
   const body: Record<string, unknown> = {
     model: env.OPENAI_MODEL,
     input: [
-      { role: "system", content: system },
-      { role: "user", content: user },
+      { role: "system", content: req.system },
+      { role: "user", content: req.user },
     ],
-    text: { format: { type: "json_schema", name: "translation", strict: true, schema: OUTPUT_JSON_SCHEMA } },
+    text: { format: { type: "json_schema", name: req.schemaName, strict: true, schema: req.jsonSchema } },
     store: false,
   };
   const effort: ReasoningEffort | undefined = env.OPENAI_REASONING_EFFORT; // env is the single source of truth
@@ -108,7 +112,7 @@ export async function requestTranslation(
   if (!res.ok) {
     const msg = json.error?.message ?? `OpenAI returned ${res.status}`;
     if (res.status === 400 && /reasoning|effort/i.test(msg)) {
-      throw new AiError("unsupported_parameter", `Model "${env.OPENAI_MODEL}" rejected the reasoning parameter: ${msg}. Choose another effort (or “model default”), or another model. (No silent fallback.)`, 400);
+      throw new AiError("unsupported_parameter", `Model "${env.OPENAI_MODEL}" rejected the reasoning parameter: ${msg}. Change OPENAI_REASONING_EFFORT or OPENAI_MODEL in .env.local. (No silent fallback.)`, 400);
     }
     throw new AiError("provider_error", msg, 502);
   }
@@ -125,7 +129,12 @@ export async function requestTranslation(
   } catch {
     throw new AiError("invalid_output", "Model output was not valid JSON");
   }
-  const checked = TranslationOutputSchema.safeParse(parsed);
+  const checked = req.zod.safeParse(parsed);
   if (!checked.success) throw new AiError("invalid_output", "Model output did not match the required schema");
   return { output: checked.data, model: env.OPENAI_MODEL, inputTokens: json.usage?.input_tokens, outputTokens: json.usage?.output_tokens, reasoningTokens: json.usage?.output_tokens_details?.reasoning_tokens, reasoningEffort: effort };
+}
+
+export function requestTranslation(env: Env, req: TranslationRequest, fetchImpl: typeof fetch = fetch): Promise<ProviderResult> {
+  const { system, user } = buildMessages(req);
+  return requestStructured(env, { system, user, schemaName: "translation", jsonSchema: OUTPUT_JSON_SCHEMA, zod: TranslationOutputSchema }, fetchImpl);
 }

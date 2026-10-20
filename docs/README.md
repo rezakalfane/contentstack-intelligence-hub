@@ -5,6 +5,7 @@
 | [Getting started](getting-started.md) | Install, run in demo or live mode |
 | [Configuration](configuration.md) | Every `.env.local` variable (Contentstack, OpenAI, prices, write guards) |
 | [Features](features.md) | The pages and what each one does |
+| [SEO & AI discoverability audit](seo-audit.md) | Rules, thresholds, scoring, human-reviewed AI suggestions |
 | [Reference graph](reference-graph.md) | Blast radius, dependencies, broken references, limits |
 | [Safety model](safety.md) | Secrets, request guard, approve ≠ write ≠ publish, guarded writer |
 | [What is real, what is simulated](status.md) | Verified vs simulated, plus known limitations |

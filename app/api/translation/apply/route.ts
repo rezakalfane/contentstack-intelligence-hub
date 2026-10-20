@@ -30,6 +30,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ proposal: stepProposal(mode, proposal.id, { type: "apply_to_demo", actorId: guard.actorId }) });
     }
 
+    if (proposal.task === "seo") {
+      return jsonError("Live CMS write is not available for SEO suggestions. Copy the approved text into Contentstack.", 409, { code: "seo_write_unsupported" });
+    }
+
     // target === "cms": disabled by default, separately authorised, draft-only, never publishes.
     const decision = evaluateWritePolicy(env, mode, { entryUid: proposal.pointer.entryUid }, body.data.confirm);
     if (!decision.allowed) return jsonError(decision.reason, 403, { code: decision.code });

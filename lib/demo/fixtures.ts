@@ -24,6 +24,9 @@ export const DEMO_CONTENT_TYPES: NormalizedContentType[] = [
       field("hero", "Hero", "group", { schema: [text("title", "Title", true), text("description", "Description", true)] }),
       text("seo_meta_description", "SEO meta description", true),
       text("cta_label", "CTA label", true),
+      text("url", "URL", false, { nonLocalizable: true }),
+      text("meta_title", "Meta title"),
+      field("hero_image_alt", "Hero image alt text", "text"),
       field("highlights", "Highlights", "group", { multiple: true, schema: [text("text", "Text")] }),
       field("related_page", "Related landing page", "reference", { referenceTo: ["landing_page"], nonLocalizable: true }),
       field("hero_image", "Hero image", "file", { nonLocalizable: true }),
@@ -33,6 +36,8 @@ export const DEMO_CONTENT_TYPES: NormalizedContentType[] = [
     uid: "landing_page", title: "Landing page",
     schema: [
       internalTitle(),
+      text("url", "URL", false, { nonLocalizable: true }),
+      text("meta_title", "Meta title"),
       text("hero_title", "Hero title", true),
       text("hero_description", "Hero description"),
       text("cta_label", "CTA label"),
@@ -47,6 +52,7 @@ export const DEMO_CONTENT_TYPES: NormalizedContentType[] = [
     schema: [
       internalTitle(),
       text("headline", "Headline", true),
+      text("sku", "SKU", false, { nonLocalizable: true }),
       text("summary", "Summary", true),
       text("key_features", "Key features", false, { multiple: true }),
       text("cta_label", "CTA label"),
@@ -58,12 +64,17 @@ export const DEMO_CONTENT_TYPES: NormalizedContentType[] = [
     uid: "editorial", title: "Editorial",
     schema: [
       internalTitle(),
+      text("url", "URL", false, { nonLocalizable: true }),
+      text("meta_title", "Meta title"),
+      field("published", "Published", "isodate", { nonLocalizable: true }),
+      text("byline", "Byline", false, { nonLocalizable: true }),
       text("headline", "Headline", true),
       text("standfirst", "Standfirst"),
       field("body", "Body", "json"),
       text("seo_description", "SEO description"),
       field("related_campaign", "Related campaign", "reference", { referenceTo: ["campaign"], nonLocalizable: true }),
       field("cover", "Cover image", "file", { nonLocalizable: true }),
+      text("cover_alt", "Cover image alt text"),
     ],
   },
 ];
@@ -76,15 +87,23 @@ const hash = (...parts: (number | string)[]) => {
   for (const p of parts) for (const ch of String(p)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
   return (h >>> 0) % 100;
 };
-const rte = (paragraphs: string[], embed?: { uid: string; _content_type_uid: string }) => ({
+type RteBlock = string | { h: number; text: string } | { link: string; text: string };
+const rte = (blocks: RteBlock[], embed?: { uid: string; _content_type_uid: string }) => ({
   type: "doc", uid: "root", attrs: {},
   children: [
-    ...paragraphs.map((t, i) => ({ type: "p", uid: `p${i}`, attrs: {}, children: [{ text: t }] })),
+    ...blocks.map((b, i) =>
+      typeof b === "string"
+        ? { type: "p", uid: `p${i}`, attrs: {}, children: [{ text: b }] }
+        : "h" in b
+          ? { type: `h${b.h}`, uid: `h${i}`, attrs: {}, children: [{ text: b.text }] }
+          : { type: "p", uid: `p${i}`, attrs: {}, children: [{ text: `${b.text} ` }, { type: "a", attrs: { url: "/guides/buying" }, children: [{ text: b.link }] }, { text: "." }] },
+    ),
     // JSON RTE entry embed: counted as a reference by the graph, ignored by text analysis (no text leaf).
     ...(embed ? [{ type: "reference", uid: "emb", attrs: { type: "entry", "entry-uid": embed.uid, "content-type-uid": embed._content_type_uid, "display-type": "block" }, children: [{ text: "" }] }] : []),
   ],
 });
 const meta = (uid: string) => ({ uid });
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 const uidOf = (ct: string, n: number) => `${ct}_${String(((n % ENTRIES_PER_TYPE) + ENTRIES_PER_TYPE) % ENTRIES_PER_TYPE + 1).padStart(2, "0")}`;
 const ref = (ct: string, n: number) => ({ uid: uidOf(ct, n), _content_type_uid: ct });
 const asset = (n: number) => ({ uid: `asset_${n % 6}`, filename: `${["autumn", "winter", "studio", "workshop", "materials", "journal"][n % 6]}-${n % 6}.jpg`, url: `https://example.invalid/assets/${n % 6}.jpg`, content_type: "image/jpeg" });
@@ -95,17 +114,34 @@ const NOT_LOCALIZED_RATE: Record<string, number> = { "it-it": 22, "es-es": 7, "d
 
 type Translator = (phrase: Phrase, key: string) => string;
 
-function content(ctUid: string, e: number, t: Translator): Record<string, unknown> {
+function content(ctUid: string, e: number, t: Translator, master = false): Record<string, unknown> {
   const S = (k: number) => SENTENCES[k % SENTENCES.length] as Phrase;
   const H = (k: number) => HEADLINES[k % HEADLINES.length] as Phrase;
   const C = (k: number) => CTAS[k % CTAS.length] as Phrase;
   const title = ENTRY_TITLES[e % ENTRY_TITLES.length] as string;
+  // Deliberate SEO problems in the MASTER locale (targets inherit structure, not the gaps).
+  // Meta title: unique "<headline> | <entry name>" with deliberate defects (empty, too long, a duplicated pair on campaigns).
+  const metaTitle = (k: number) =>
+    e === 4 ? (master ? "" : `${t(H(k), "mt")} | ${title}`)
+    : e % 5 === 2 ? t(S(e + 9), "mt-long")
+    : ctUid === "campaign" && (e === 1 || e === 9) ? t(H(2), "mt-dup")
+    : `${t(H(k), "mt")} | ${title}`;
+  // Meta description: unique by construction (pair derived from a per-entry number), with deliberate defects:
+  // occasionally the bare entry name (too short, and duplicated across types) or three sentences (too long).
+  const entryNo = DEMO_CONTENT_TYPES.findIndex((c) => c.uid === ctUid) * ENTRIES_PER_TYPE + e;
+  const metaDesc = (_k: number, key: string) => {
+    const a = entryNo % 12, c = Math.floor(entryNo / 12), b = (a + 1 + c * 2) % 12;
+    return e % 7 === 3 ? `${title}.`
+      : e % 9 === 4 ? [a, b, (b + 5) % 12].map((x, j) => t(S(x), `${key}${j}`)).join(" ")
+      : [a, b].map((x, j) => t(S(x), `${key}${j}`)).join(" ");
+  };
+  const urlFor = (base: string) => (e === 3 ? `/${base}/${slug(title)}`.replace(/(^.|\/.)/g, (c) => c.toUpperCase()) : e === 7 ? `/${base}/${slug(title).replace(/-/g, "_")}` : e === 11 ? `/${base}/${slug(title)}-${slug(S(e)["en-us"])}-${slug(S(e + 1)["en-us"])}` : `/${base}/${slug(title)}`);
   switch (ctUid) {
     case "campaign":
       return {
         title,
         hero: { title: t(H(e), "hero.title"), description: t(S(e), "hero.description") },
-        seo_meta_description: t(S(e + 2), "seo"),
+        seo_meta_description: master && e === 8 ? "" : metaDesc(e + 2, "seo"),
         cta_label: t(C(e), "cta"),
         highlights: [
           { _metadata: meta(`hl-${e}-a`), text: t(S(e + 4), "hl-a") },
@@ -113,6 +149,9 @@ function content(ctUid: string, e: number, t: Translator): Record<string, unknow
         ],
         related_page: [ref("landing_page", e + 2)],
         hero_image: asset(e),
+        url: urlFor("campaigns"),
+        meta_title: metaTitle(e),
+        hero_image_alt: e % 4 === 1 ? (master ? "" : t(H(e), "alt")) : t(H(e + 1), "alt"),
       };
     case "landing_page":
       return {
@@ -120,11 +159,13 @@ function content(ctUid: string, e: number, t: Translator): Record<string, unknow
         hero_title: t(H(e + 1), "hero_title"),
         hero_description: t(S(e + 1), "hero_description"),
         cta_label: t(C(e + 1), "cta"),
-        seo_description: t(S(e + 3), "seo"),
+        seo_description: master && e === 6 ? "" : metaDesc(e + 3, "seo"),
         sections: [{ feature: { _metadata: meta(`sec-${e}`), heading: t(H(e + 3), "sec-h"), copy: t(S(e + 5), "sec-c") } }],
         // product_story_02 is a deliberate hub: many landing pages feature it.
         featured_story: [ref("product_story", e % 3 === 0 ? 1 : e)],
         hero_image: asset(e + 1),
+        url: urlFor("pages"),
+        meta_title: metaTitle(e + 1),
       };
     case "product_story":
       return {
@@ -134,19 +175,35 @@ function content(ctUid: string, e: number, t: Translator): Record<string, unknow
         key_features: [t(S(e + 4), "kf0"), t(S(e + 6), "kf1"), t(S(e + 8), "kf2")],
         cta_label: t(C(e + 2), "cta"),
         related_editorial: e < 10 ? [ref("editorial", e), ref("editorial", e + 4)] : [],
-        gallery: [asset(e), asset(e + 2)],
+        gallery: e % 5 === 0 ? [] : [asset(e), asset(e + 2)],
+        sku: `SKU-${String(e + 100)}`,
       };
-    default:
+    default: {
+      // Body shape varies on purpose: structured+long, long without headings, thin, one huge paragraph.
+      const para = (i: number, n = 3) => Array.from({ length: n }, (_, j) => t(S(e + i * 3 + j), `bp${i}-${j}`)).join(" ");
+      const shape = e % 3;
+      let blocks: RteBlock[];
+      if (e === 6) blocks = [Array.from({ length: 20 }, (_, j) => t(S(e + j), `huge${j}`)).join(" "), para(1)];
+      else if (shape === 0) blocks = [para(0), { h: 2, text: t(H(e), "bh0") }, para(1), para(2), { h: e === 9 ? 4 : 2, text: t(H(e + 1), "bh1") }, para(3), para(4), para(5)];
+      else if (shape === 1) blocks = Array.from({ length: 12 }, (_, i) => para(i));
+      else blocks = [para(0), para(1)];
+      if (e % 4 === 1) blocks[0] = { link: "click here", text: para(0, 2) };
       return {
         title,
+        url: urlFor("journal"),
+        meta_title: metaTitle(e + 4),
+        published: new Date(Date.UTC(2026, 9, 1) - e * 60 * 86_400_000).toISOString(),
+        byline: e % 6 === 5 ? "" : "Staff writer",
         headline: t(H(e + 4), "headline"),
         standfirst: t(S(e + 7), "standfirst"),
-        body: rte([t(S(e + 10), "body0"), t(S(e + 11), "body1")], e % 4 === 0 ? ref("product_story", e) : undefined),
-        seo_description: t(S(e + 5), "seo"),
+        body: rte(blocks, e % 4 === 0 ? ref("product_story", e) : undefined),
+        seo_description: master && e === 2 ? "" : metaDesc(e + 5, "seo"),
         // editorial_06 points at a campaign that no longer exists: a broken reference to detect.
         related_campaign: e === 5 ? [{ uid: "campaign_99", _content_type_uid: "campaign" }] : e < 10 ? [ref("campaign", e + 1)] : [],
         cover: asset(e + 3),
+        cover_alt: e % 3 === 2 ? (master ? "" : t(H(e), "calt")) : t(H(e + 2), "calt"),
       };
+    }
   }
 }
 
@@ -171,7 +228,7 @@ export function buildDemoWorld(): DemoWorld {
   DEMO_CONTENT_TYPES.forEach((ct, ci) => {
     for (let e = 0; e < ENTRIES_PER_TYPE; e++) {
       const uid = `${ct.uid}_${String(e + 1).padStart(2, "0")}`;
-      const values = content(ct.uid, e, (p) => p[DEMO_MASTER]);
+      const values = content(ct.uid, e, (p) => p[DEMO_MASTER], true);
       const campaign =
         ct.uid === "campaign"
           ? { id: `CMP-${String(e + 1).padStart(2, "0")}`, launchDate: e < 3 ? `2026-10-${27 + e}` : `2026-12-${String(1 + e).padStart(2, "0")}` }

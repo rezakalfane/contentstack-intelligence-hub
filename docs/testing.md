@@ -4,8 +4,8 @@
 npm run verify      # lint → typecheck → unit/integration tests → build
 npm run test        # Vitest: scoring, fallback semantics, freshness, state machine, validation,
                     #         CMA pagination/retry/partial failure, write guards, OpenAI provider (mocked),
-                    #         reference graph, deep links, restore helpers
-npm run e2e         # Playwright (demo mode): journey, reject, placeholder block, keyboard, filters/CSV, graph
+                    #         reference graph, SEO rules/scoring/suggestions, deep links, restore helpers
+npm run e2e         # Playwright (demo mode): journey, reject, placeholder block, keyboard, filters/CSV, graph, SEO audit
                     #   E2E_PORT=3000 reuses a running dev server; PW_CHROMIUM_PATH reuses an installed Chromium
 ```
 

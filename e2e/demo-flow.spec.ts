@@ -155,3 +155,48 @@ test("reference graph: select a hub, see blast radius, jump to a dependent, filt
   await expect(page.getByText("This entry does not exist.")).toBeVisible();
   await page.screenshot({ path: "screenshots/demo-graph.png", fullPage: true });
 });
+
+test("SEO audit: filter by rule, simulated suggestion, edit, approve, apply to demo, score recalculates", async ({ page }) => {
+  await page.goto("/seo?rule=SEO-001");
+  await expect(page.getByRole("heading", { name: "Be found. Be quoted." })).toBeVisible();
+  const kpi = async (label: string) => {
+    const txt = await page.getByRole("region", { name: "Scores" }).getByText(label).locator("..").innerText();
+    return Number(/(\d+)/.exec(txt.replace(label, ""))?.[1]);
+  };
+  const openBefore = await kpi("Open findings");
+
+  // The rule filter from the URL preselects only missing-meta-description findings.
+  await page.getByLabel("Status filter").selectOption("open");
+  await page.getByRole("button", { name: /^Review SEO-001/ }).first().click();
+  const d = page.getByRole("dialog");
+  await expect(d.getByText("Meta description is empty")).toBeVisible();
+  await expect(d.getByText(/0 characters · target/)).toBeVisible();
+
+  await d.getByRole("button", { name: "Generate simulated suggestion" }).click();
+  await expect(d.getByText("Simulated — not a model output")).toBeVisible();
+  const box = d.getByLabel("Editable suggestion");
+  expect((await box.inputValue()).length).toBeGreaterThan(40);
+  await expect(d.getByText(/characters · target .*✓/)).toBeVisible(); // within range
+
+  await box.fill((await box.inputValue()) + " Reviewed by a human.");
+  await box.blur();
+  await expect(d.getByText("Proposal edited by reviewer")).toBeVisible();
+  await d.getByRole("button", { name: "Approve suggestion" }).click();
+  await expect(d.getByText(/No Contentstack write was performed/)).toBeVisible();
+  await d.getByRole("button", { name: "Apply to demo dataset" }).click();
+  await expect(d.getByText("Applied to local demo dataset — NOT Contentstack")).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await page.goto("/seo");
+  expect(await kpi("Open findings")).toBeLessThan(openBefore);
+  await page.screenshot({ path: "screenshots/demo-seo.png", fullPage: true });
+});
+
+test("SEO audit: non-text findings explain the fix and offer no AI suggestion", async ({ page }) => {
+  await page.goto("/seo?rule=SEO-008");
+  await page.getByRole("button", { name: /^Review SEO-008/ }).first().click();
+  const d = page.getByRole("dialog");
+  await expect(d.getByText(/How to fix/)).toBeVisible();
+  await expect(d.getByText(/needs an editorial or schema change/)).toBeVisible();
+  await expect(d.getByRole("button", { name: /Generate/ })).toHaveCount(0);
+});

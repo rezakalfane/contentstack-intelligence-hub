@@ -4,6 +4,7 @@ import { createDemoAdapter } from "@/lib/adapters/demo-adapter";
 import { DEMO_CRITICAL_LOCALES } from "@/lib/demo/fixtures";
 import type { DataMode, Snapshot } from "@/lib/domain/types";
 import { buildView, type View } from "@/lib/scan/view";
+import { buildSeoView, type SeoView } from "@/lib/scan/seo-view";
 import { runScan } from "@/lib/scan/scan";
 import { getEnv, resolveCmaBase } from "@/lib/security/env";
 import { store } from "@/lib/store/store";
@@ -47,4 +48,10 @@ export async function getView(mode: DataMode): Promise<View | null> {
   const snapshot = mode === "demo" ? await getDemoSnapshot() : store.read("live").snapshot;
   if (!snapshot) return null;
   return buildView(snapshot, Object.values(store.read(mode).proposals), new Date());
+}
+
+export async function getSeoView(mode: DataMode): Promise<SeoView | null> {
+  const snapshot = mode === "demo" ? await getDemoSnapshot() : store.read("live").snapshot;
+  if (!snapshot) return null;
+  return buildSeoView(snapshot, Object.values(store.read(mode).proposals), new Date());
 }
