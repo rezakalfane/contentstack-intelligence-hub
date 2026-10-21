@@ -6,7 +6,7 @@
 - **Approve ≠ write ≠ publish.** Approval needs non-empty text, no placeholder/markup mismatch, and an unchanged source fingerprint (409 otherwise).
 - Guarded writer requirements: `ENABLE_CMS_WRITES=true`, a separate write token, the entry in `CMS_WRITE_ALLOWED_ENTRY_UIDS`, explicit confirmation in a modal, fresh re-read, fingerprint + version check (409 on conflict), single-field merge with assets sent as UIDs, read-back verification before a proposal becomes `written`. A pre-read is **not** an atomic compare-and-swap. After a conflict the reviewer can **re-review against the current CMS state**.
 - The review panel lists exactly which write conditions are unmet.
-- Review/audit state and the last live snapshot are stored as local JSON in `.data/` (gitignored). The live snapshot contains source/target text; delete `.data/` to purge.
+- Review/audit state, scan progress and the last live snapshot are stored as JSON in `.data/` (gitignored) locally, or as **private** Vercel Blob objects under `hub/` when a Blob store is connected (`BLOB_STORE_ID` or `BLOB_READ_WRITE_TOKEN`; required on Vercel, where the filesystem is read-only and instances share no memory). The live snapshot contains source/target text; delete `.data/` or the `hub/` blobs to purge.
 
 ---
 [← Back to README](../README.md) · [All documentation](README.md)

@@ -19,31 +19,33 @@ export class ServiceError extends Error {
   }
 }
 
-function save(mode: DataMode, result: { proposal: TranslationProposal; audit: AuditEvent }) {
-  store.update(mode, (d) => {
+async function save(mode: DataMode, result: { proposal: TranslationProposal; audit: AuditEvent }) {
+  await store.update(mode, (d) => {
     d.proposals[result.proposal.id] = result.proposal;
     d.audit.push(result.audit);
   });
   return result.proposal;
 }
 
-export function findProposal(mode: DataMode, proposalId: string): TranslationProposal {
-  const p = store.read(mode).proposals[proposalId];
+export async function findProposal(mode: DataMode, proposalId: string): Promise<TranslationProposal> {
+  const p = (await store.read(mode)).proposals[proposalId];
   if (!p) throw new ServiceError("Proposal not found", 404, "not_found");
   return p;
 }
 
-function step(mode: DataMode, p: TranslationProposal, ev: ReviewEvent) {
+function step(mode: DataMode, p: TranslationProposal, ev: ReviewEvent): Promise<TranslationProposal> {
+  let next: ReturnType<typeof transition>;
   try {
-    return save(mode, transition(p, ev, new Date()));
+    next = transition(p, ev, new Date());
   } catch (err) {
     if (err instanceof TransitionError) throw new ServiceError(err.message, err.code === "invalid_state" ? 409 : 422, err.code);
     throw err;
   }
+  return save(mode, next);
 }
 
-export function stepProposal(mode: DataMode, proposalId: string, ev: ReviewEvent) {
-  return step(mode, findProposal(mode, proposalId), ev);
+export async function stepProposal(mode: DataMode, proposalId: string, ev: ReviewEvent) {
+  return step(mode, await findProposal(mode, proposalId), ev);
 }
 
 export async function proposeTranslation(
@@ -54,7 +56,7 @@ export async function proposeTranslation(
   if (!issue.proposable) throw new ServiceError("This issue has no translatable text; handle it in Contentstack's publishing workflow", 422, "not_proposable");
   const env = getEnv();
   const id = shortId("p", issue.id);
-  const existing = store.read(mode).proposals[id];
+  const existing = (await store.read(mode)).proposals[id];
   if (existing && !["not_requested", "rejected", "write_failed"].includes(existing.status)) return existing; // idempotent
 
   if (mode === "live") {
@@ -72,7 +74,7 @@ export async function proposeTranslation(
     glossaryWarnings: [], placeholderWarnings: [], notes: [], updatedAt: now.toISOString(),
   };
   const fresh: TranslationProposal = { ...base, sourceText: issue.sourceText, existingText: issue.existingText, sourceFingerprint: issue.sourceFingerprint, cmsVersionAtProposal: issue.cmsVersion };
-  let p = step(mode, fresh, { type: "request" });
+  let p = await step(mode, fresh, { type: "request" });
 
   try {
     if (mode === "demo") {
@@ -108,23 +110,23 @@ export async function proposeTranslation(
       },
     });
   } catch (err) {
-    p = findProposal(mode, id);
+    p = await findProposal(mode, id);
     const reason = err instanceof AiError || err instanceof Error ? err.message : "Unknown error";
-    step(mode, p, { type: "generation_failed", reason });
+    await step(mode, p, { type: "generation_failed", reason });
     if (err instanceof AiError) throw new ServiceError(err.message, err.status, err.code);
     throw err;
   }
 }
 
-export function reviewProposal(
+export async function reviewProposal(
   mode: DataMode,
   proposalId: string,
   action: "open" | "edit" | "approve" | "reject" | "rebase",
   actorId: string,
   current: LocalizationDiagnostic | undefined,
   payload: { text?: string; comment?: string },
-): TranslationProposal {
-  let p = findProposal(mode, proposalId);
+): Promise<TranslationProposal> {
+  let p = await findProposal(mode, proposalId);
   switch (action) {
     case "open":
       if (p.status === "proposed") return step(mode, p, { type: "edit", text: effectiveText(p) });
@@ -147,7 +149,7 @@ export function reviewProposal(
       const text = payload.text ?? effectiveText(p);
       // SEO suggestions are free text: only emptiness blocks. Length/quality are shown as warnings, not blockers.
       const v = p.task === "seo" ? { blocking: text.trim() ? [] : ["Text is empty"] } : validateTranslation(p.sourceText, text);
-      p = step(mode, p, { type: "approve", actorId, text, blockingIssues: v.blocking });
+      p = await step(mode, p, { type: "approve", actorId, text, blockingIssues: v.blocking });
       return p;
     }
   }
@@ -164,7 +166,7 @@ export async function proposeSeoText(
   }
   const env = getEnv();
   const id = shortId("p", finding.id);
-  const existing = store.read(mode).proposals[id];
+  const existing = (await store.read(mode)).proposals[id];
   if (existing && !["not_requested", "rejected", "write_failed"].includes(existing.status)) return existing; // idempotent
 
   if (mode === "live") {
@@ -182,7 +184,7 @@ export async function proposeSeoText(
     sourceFingerprint: fingerprint(current), glossaryWarnings: [], placeholderWarnings: [], notes: [], updatedAt: new Date().toISOString(),
   };
   const fresh: TranslationProposal = { ...base, sourceText: current, existingText: current, sourceFingerprint: fingerprint(current) };
-  let p = step(mode, fresh, { type: "request" });
+  let p = await step(mode, fresh, { type: "request" });
 
   const lengthNote = (text: string) => (text.length < sg.min || text.length > sg.max ? [`Length ${text.length} is outside the target ${sg.min}–${sg.max} characters.`] : [`Length ${text.length} characters (target ${sg.min}–${sg.max}).`]);
   try {
@@ -209,9 +211,9 @@ export async function proposeSeoText(
       },
     });
   } catch (err) {
-    p = findProposal(mode, id);
+    p = await findProposal(mode, id);
     const reason = err instanceof Error ? err.message : "Unknown error";
-    step(mode, p, { type: "generation_failed", reason });
+    await step(mode, p, { type: "generation_failed", reason });
     if (err instanceof AiError) throw new ServiceError(err.message, err.status, err.code);
     throw err;
   }

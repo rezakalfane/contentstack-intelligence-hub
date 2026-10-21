@@ -7,7 +7,7 @@ import { buildView, type View } from "@/lib/scan/view";
 import { buildSeoView, type SeoView } from "@/lib/scan/seo-view";
 import { runScan } from "@/lib/scan/scan";
 import { getEnv, resolveCmaBase } from "@/lib/security/env";
-import { store } from "@/lib/store/store";
+import { store, type StoreData } from "@/lib/store/store";
 
 export const MODE_COOKIE = "hub_mode";
 export const DEMO_PROVENANCE = "DEMO · Sample fixtures";
@@ -36,26 +36,28 @@ export function getDemoSnapshot(): Promise<Snapshot> {
 }
 
 /** Baselines recorded when a reviewer approved a proposal: unit key -> approved source fingerprint. */
-export function approvedBaselines(mode: DataMode): Map<string, string> {
+export function approvedBaselines(data: StoreData): Map<string, string> {
   const out = new Map<string, string>();
-  for (const p of Object.values(store.read(mode).proposals)) {
+  for (const p of Object.values(data.proposals)) {
     if (["approved", "write_pending", "written"].includes(p.status)) out.set(p.unitKey, p.sourceFingerprint);
   }
   return out;
 }
 
-export async function getView(mode: DataMode): Promise<View | null> {
-  const snapshot = mode === "demo" ? await getDemoSnapshot() : store.read("live").snapshot;
+export async function getView(mode: DataMode, data?: StoreData): Promise<View | null> {
+  data ??= await store.read(mode);
+  const snapshot = mode === "demo" ? await getDemoSnapshot() : data.snapshot;
   if (!snapshot) return null;
-  return buildView(snapshot, Object.values(store.read(mode).proposals), new Date());
+  return buildView(snapshot, Object.values(data.proposals), new Date());
 }
 
 export async function getSeoView(mode: DataMode): Promise<SeoView | null> {
-  const snapshot = mode === "demo" ? await getDemoSnapshot() : store.read("live").snapshot;
+  const data = await store.read(mode);
+  const snapshot = mode === "demo" ? await getDemoSnapshot() : data.snapshot;
   if (!snapshot) return null;
-  return buildSeoView(snapshot, Object.values(store.read(mode).proposals), new Date());
+  return buildSeoView(snapshot, Object.values(data.proposals), new Date());
 }
 
 export async function getSnapshot(mode: DataMode): Promise<Snapshot | null> {
-  return mode === "demo" ? getDemoSnapshot() : store.read("live").snapshot ?? null;
+  return mode === "demo" ? getDemoSnapshot() : (await store.read("live")).snapshot ?? null;
 }

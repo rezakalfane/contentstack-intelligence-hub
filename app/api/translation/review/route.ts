@@ -22,9 +22,9 @@ export async function POST(req: Request) {
   const mode = await resolveMode();
   const view = await getView(mode);
   try {
-    const issueId = findProposal(mode, body.data.proposalId).issueId;
+    const issueId = (await findProposal(mode, body.data.proposalId)).issueId;
     const current = view?.diagnostics.find((d) => d.id === issueId);
-    const proposal = reviewProposal(mode, body.data.proposalId, body.data.action, guard.actorId, current, body.data);
+    const proposal = await reviewProposal(mode, body.data.proposalId, body.data.action, guard.actorId, current, body.data);
     return NextResponse.json({ proposal });
   } catch (err) {
     if (err instanceof ServiceError) return jsonError(err.message, err.status, { code: err.code });

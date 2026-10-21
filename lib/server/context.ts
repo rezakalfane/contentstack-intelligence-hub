@@ -7,8 +7,8 @@ import { getView, liveConfigured, resolveMode } from "./data";
 /** One load per request, shared by layout and page. */
 export const loadContext = cache(async () => {
   const mode = await resolveMode();
-  const view = await getView(mode);
-  const data = store.read(mode);
+  const data = await store.read(mode);
+  const view = await getView(mode, data);
   return {
     mode,
     view,

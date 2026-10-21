@@ -13,7 +13,7 @@ lib/adapters    ContentstackAdapter interface · demo-adapter (fixtures) · live
 lib/scan        analyze(): adapter output -> FieldUnits -> diagnostics -> Snapshot (same code for live and demo)
 lib/ai          prompt, Zod validation, placeholder/glossary checks, pricing, OpenAI Responses client (server only)
 lib/security    env (Zod), request guard (same-origin + header), write policy
-lib/store       file-backed JSON store (.data/, gitignored): snapshots, proposals, audit events
+lib/store       JSON store (.data/ locally, private Vercel Blob when connected): snapshots, proposals, audit events, scan progress
 app/api         sync (start/status/cancel) · translation/{propose,review,apply} · mode · status
 app/(product)   overview · localization · health · graph · insights · roadmap · settings
 ```

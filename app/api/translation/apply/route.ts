@@ -23,11 +23,11 @@ export async function POST(req: Request) {
   const env = getEnv();
 
   try {
-    const proposal = findProposal(mode, body.data.proposalId);
+    const proposal = await findProposal(mode, body.data.proposalId);
 
     if (body.data.target === "demo") {
       if (mode !== "demo") return jsonError("'Apply to demo' only exists in DEMO mode. Live data is never modified by this action.", 409);
-      return NextResponse.json({ proposal: stepProposal(mode, proposal.id, { type: "apply_to_demo", actorId: guard.actorId }) });
+      return NextResponse.json({ proposal: await stepProposal(mode, proposal.id, { type: "apply_to_demo", actorId: guard.actorId }) });
     }
 
     if (proposal.task === "seo") {
@@ -44,9 +44,9 @@ export async function POST(req: Request) {
     const adapter = createLiveAdapter({ client: read.client, region: base.region, branch: env.CONTENTSTACK_BRANCH, masterLocale: env.CONTENTSTACK_MASTER_LOCALE, environment: env.CONTENTSTACK_ENVIRONMENT });
     const writeClient = new CmaClient({ base: base.base, apiKey: env.CONTENTSTACK_API_KEY, token: env.CONTENTSTACK_WRITE_TOKEN, branch: env.CONTENTSTACK_BRANCH });
 
-    stepProposal(mode, proposal.id, { type: "write_start", actorId: guard.actorId });
+    await stepProposal(mode, proposal.id, { type: "write_start", actorId: guard.actorId });
     const result = await applyReviewedProposal({ env, mode, adapter, writeClient }, proposal, body.data.confirm);
-    const updated = stepProposal(mode, proposal.id, {
+    const updated = await stepProposal(mode, proposal.id, {
       type: "write_result", actorId: guard.actorId, ok: result.ok, readBackVerified: result.ok, error: result.ok ? undefined : result.message,
     });
     if (!result.ok) return jsonError(result.message, result.code === "conflict" ? 409 : 502, { code: result.code, proposal: updated });

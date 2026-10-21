@@ -11,3 +11,6 @@ playwright-report
 backups
 screenshots/*-live-*
 screenshots/live-*
+.vercel
+.env*
+!.env.example
