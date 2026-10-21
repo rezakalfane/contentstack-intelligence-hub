@@ -218,6 +218,17 @@ export interface AuditEvent {
   at: string;
 }
 
+// ---------- Schema governance ----------
+
+/** How often a schema path is populated across master-locale entries of its content type. */
+export interface FieldUsageRow {
+  contentTypeUid: string;
+  /** Schema path without instance ids, e.g. `hero.title` or `content.text.text`. */
+  path: string;
+  filled: number;
+  total: number;
+}
+
 // ---------- SEO & AI discoverability ----------
 
 export interface SeoTextField {
@@ -341,6 +352,9 @@ export interface Snapshot {
   limits: string[];
   units: TranslatableUnit[];
   entryLocales: EntryLocaleState[];
+  /** Normalised content type schemas and field fill rates (for schema governance). Absent on older snapshots. */
+  schemas?: NormalizedContentType[];
+  fieldUsage?: FieldUsageRow[];
   /** Audit facts for master-locale entries. Absent on snapshots created before this feature. */
   seo?: SeoFacts[];
   /** Built from master-locale entries during the scan. Absent on snapshots created before this feature. */

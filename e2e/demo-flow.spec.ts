@@ -200,3 +200,30 @@ test("SEO audit: non-text findings explain the fix and offer no AI suggestion", 
   await expect(d.getByText(/needs an editorial or schema change/)).toBeVisible();
   await expect(d.getByRole("button", { name: /Generate/ })).toHaveCount(0);
 });
+
+test("schema governance: overview, overlap heatmap, rule filter, type structure drawer", async ({ page }) => {
+  await page.goto("/schema");
+  await expect(page.getByRole("heading", { name: "Keep the model simple enough to change." })).toBeVisible();
+  await expect(page.getByText("Governance score")).toBeVisible();
+  await page.screenshot({ path: "screenshots/demo-schema.png", fullPage: true }); // clean page, before any drawer opens
+
+  // Overlap heatmap: click a cell, see which fields are shared.
+  await page.getByRole("button", { name: /Campaign and Landing page share \d+ fields/ }).click();
+  await expect(page.getByRole("status").filter({ hasText: /overlap|Click a cell/ })).toContainText(/Campaign ↔ Landing page/);
+
+  // Rule filter: rule counts are clickable and filter the recommendations.
+  await page.getByLabel("Rule filter").selectOption("SCH-003");
+  await expect(page.getByText(/Nested \d+ levels deep/)).toBeVisible();
+  await page.getByText(/Nested \d+ levels deep/).click();
+  await expect(page.getByText(/Recommendation:/).first()).toBeVisible();
+
+  // Type drawer: structure tree with usage bars and the change-risk box.
+  await page.getByRole("button", { name: "Open Landing page structure", exact: true }).click();
+  const d = page.getByRole("dialog");
+  await expect(d.getByText("If you make a breaking change here")).toBeVisible();
+  await expect(d.getByText("field1", { exact: true }).first()).toBeVisible();
+  await expect(d.getByText("0%").first()).toBeVisible(); // an unused field is visible as 0%
+  await page.screenshot({ path: "screenshots/demo-schema-drawer.png" }); // viewport only: the drawer is position:fixed
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});

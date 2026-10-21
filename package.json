@@ -15,7 +15,8 @@
     "cs:backup": "tsx scripts/backup-entries.mts",
     "cs:degrade": "tsx scripts/degrade-fr.mts",
     "cs:restore": "tsx scripts/restore-fr.mts",
-    "live:seo": "tsx scripts/seo-audit.mts"
+    "live:seo": "tsx scripts/seo-audit.mts",
+    "live:schema": "tsx scripts/schema-audit.mts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.3.1",

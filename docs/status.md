@@ -6,6 +6,7 @@ Honest boundaries of this prototype.
 |---|---|
 | Contentstack CMA reads (locales, content types, entries, explicit `/locales` presence, publish details, references) | **Real**, read-only, server-side, verified against a live EU stack |
 | Coverage / health / issue rules / graph | Real computation over whichever dataset is loaded |
+| Schema governance | **Real** analysis of real schemas, field usage and references (verified on the live stack). Recommendations only; the tool never edits a schema |
 | SEO & AI audit | **Real** rules over real master-locale entries (verified on the live stack). Suggestions are **simulated** in demo and OpenAI in live (verified against a mocked API only). No live write-back for SEO text; copy the approved text |
 | OpenAI proposals | **Real** when configured and consented. Code is verified against a mocked Responses API; run it with your own key to verify live |
 | DEMO data and DEMO proposals | **Simulated** (sample phrase bank), always labelled |

@@ -1,5 +1,6 @@
 import type { ContentstackAdapter } from "@/lib/adapters/contentstack-adapter";
 import { buildGraph } from "@/lib/domain/graph";
+import { computeFieldUsage } from "@/lib/domain/schema-governance";
 import { extractSeoFacts } from "@/lib/domain/seo";
 import { buildUnits } from "@/lib/domain/rules";
 import { EXCLUSION_POLICY_NOTE } from "@/lib/domain/normalizer";
@@ -135,7 +136,7 @@ export async function runScan(adapter: ContentstackAdapter, opts: ScanOptions): 
     environment: ctx.environmentName,
     startedAt, completedAt: now().toISOString(),
     status: errors.length ? "partial" : "complete",
-    errors, limits, units, entryLocales, graph, seo,
+    errors, limits, units, entryLocales, graph, seo, schemas: allTypes, fieldUsage: computeFieldUsage(allTypes, sourceEntries),
     policy: { criticalLocales: opts.criticalLocales, exclusions: EXCLUSION_POLICY_NOTE },
   };
 }

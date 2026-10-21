@@ -6,6 +6,7 @@
 | [Configuration](configuration.md) | Every `.env.local` variable (Contentstack, OpenAI, prices, write guards) |
 | [Features](features.md) | The pages and what each one does |
 | [SEO & AI discoverability audit](seo-audit.md) | Rules, thresholds, scoring, human-reviewed AI suggestions |
+| [Schema governance](schema-governance.md) | Complexity, redundancy, change risk, field usage, Global Field candidates |
 | [Reference graph](reference-graph.md) | Blast radius, dependencies, broken references, limits |
 | [Safety model](safety.md) | Secrets, request guard, approve ≠ write ≠ publish, guarded writer |
 | [What is real, what is simulated](status.md) | Verified vs simulated, plus known limitations |

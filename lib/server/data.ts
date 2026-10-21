@@ -55,3 +55,7 @@ export async function getSeoView(mode: DataMode): Promise<SeoView | null> {
   if (!snapshot) return null;
   return buildSeoView(snapshot, Object.values(store.read(mode).proposals), new Date());
 }
+
+export async function getSnapshot(mode: DataMode): Promise<Snapshot | null> {
+  return mode === "demo" ? getDemoSnapshot() : store.read("live").snapshot ?? null;
+}

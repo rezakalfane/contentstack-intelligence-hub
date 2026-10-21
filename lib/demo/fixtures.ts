@@ -26,6 +26,9 @@ export const DEMO_CONTENT_TYPES: NormalizedContentType[] = [
       text("cta_label", "CTA label", true),
       text("url", "URL", false, { nonLocalizable: true }),
       text("meta_title", "Meta title"),
+      text("tagline", "Tagline", false, { nonLocalizable: true }), // looks translatable but is non-localizable (SCH-010)
+      text("legacy_banner_text", "Legacy banner text"), // never filled (SCH-001)
+      field("promo", "Promo", "group", { schema: [text("cta_text", "CTA text"), text("cta_link", "CTA link", false, { nonLocalizable: true }), text("style_note", "Style note")] }), // repeated structure (SCH-002)
       field("hero_image_alt", "Hero image alt text", "text"),
       field("highlights", "Highlights", "group", { multiple: true, schema: [text("text", "Text")] }),
       field("related_page", "Related landing page", "reference", { referenceTo: ["landing_page"], nonLocalizable: true }),
@@ -42,9 +45,17 @@ export const DEMO_CONTENT_TYPES: NormalizedContentType[] = [
       text("hero_description", "Hero description"),
       text("cta_label", "CTA label"),
       text("seo_description", "SEO description", true),
+      field("promo", "Promo", "group", { schema: [text("cta_text", "CTA text"), text("cta_link", "CTA link", false, { nonLocalizable: true }), text("style_note", "Style note")] }),
+      field("stats", "Stats", "group", { multiple: true, schema: [text("label", "Label"), field("source", "Source", "group", { schema: [text("name", "Name"), field("citation", "Citation", "group", { schema: [text("note", "Note")] })] })] }), // deep nesting (SCH-003)
+      text("field1", "Field 1"), // generic name (SCH-007)
+      field("related_pages", "Related pages", "reference", { referenceTo: ["campaign", "landing_page", "product_story", "editorial", "story_archive", "press"], multiple: true, nonLocalizable: true }), // broad + broken target (SCH-009)
       field("featured_story", "Featured story", "reference", { referenceTo: ["product_story"], nonLocalizable: true }),
       field("hero_image", "Hero image", "file", { nonLocalizable: true }),
-      field("sections", "Sections", "blocks", { blocks: [{ uid: "feature", displayName: "Feature", schema: [text("heading", "Heading"), text("copy", "Copy")] }] }),
+      field("sections", "Sections", "blocks", { blocks: [
+        { uid: "feature", displayName: "Feature", schema: [text("heading", "Heading"), text("copy", "Copy")] },
+        { uid: "feature_alt", displayName: "Feature (alt)", schema: [text("heading", "Heading"), text("copy", "Copy")] }, // identical block (SCH-005)
+        { uid: "video", displayName: "Video", schema: [text("video_title", "Video title"), text("src", "Source")] }, // never used (SCH-005)
+      ] }),
     ],
   },
   {
@@ -53,7 +64,10 @@ export const DEMO_CONTENT_TYPES: NormalizedContentType[] = [
       internalTitle(),
       text("headline", "Headline", true),
       text("sku", "SKU", false, { nonLocalizable: true }),
+      text("external_id", "External ID"), // identifier but localizable (SCH-010)
       text("summary", "Summary", true),
+      text("short_summary", "Summary (short)"), // near-duplicate of summary? (SCH-006: summary vs seo_summary style)
+      text("seo_summary", "SEO summary"),
       text("key_features", "Key features", false, { multiple: true }),
       text("cta_label", "CTA label"),
       field("related_editorial", "Related editorial", "reference", { referenceTo: ["editorial"], multiple: true, nonLocalizable: true }),
@@ -150,6 +164,8 @@ function content(ctUid: string, e: number, t: Translator, master = false): Recor
         related_page: [ref("landing_page", e + 2)],
         hero_image: asset(e),
         url: urlFor("campaigns"),
+        tagline: "Autumn essentials",
+        promo: e % 2 === 0 ? { cta_text: t(C(e), "promo-cta"), cta_link: "/shop" } : undefined,
         meta_title: metaTitle(e),
         hero_image_alt: e % 4 === 1 ? (master ? "" : t(H(e), "alt")) : t(H(e + 1), "alt"),
       };
@@ -165,6 +181,8 @@ function content(ctUid: string, e: number, t: Translator, master = false): Recor
         featured_story: [ref("product_story", e % 3 === 0 ? 1 : e)],
         hero_image: asset(e + 1),
         url: urlFor("pages"),
+        promo: { cta_text: t(C(e + 1), "promo-cta"), cta_link: "/shop", style_note: "dark" },
+        stats: e === 3 ? [{ label: t(H(e), "stat"), source: { name: "Industry report", citation: { note: "2025" } } }] : undefined,
         meta_title: metaTitle(e + 1),
       };
     case "product_story":
@@ -177,6 +195,8 @@ function content(ctUid: string, e: number, t: Translator, master = false): Recor
         related_editorial: e < 10 ? [ref("editorial", e), ref("editorial", e + 4)] : [],
         gallery: e % 5 === 0 ? [] : [asset(e), asset(e + 2)],
         sku: `SKU-${String(e + 100)}`,
+        external_id: e % 3 === 0 ? `EXT-${e}` : undefined,
+        seo_summary: e === 2 ? "Rare override" : undefined,
       };
     default: {
       // Body shape varies on purpose: structured+long, long without headings, thin, one huge paragraph.

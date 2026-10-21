@@ -19,7 +19,7 @@ Works offline with no credentials: switch to **DEMO · Sample fixtures** in the 
 ## Documentation
 
 - **[Getting started](docs/getting-started.md)** · **[Configuration](docs/configuration.md)** · **[Features](docs/features.md)**
-- **[SEO & AI audit](docs/seo-audit.md)** · **[Reference graph](docs/reference-graph.md)** · **[Safety model](docs/safety.md)** · **[What is real vs simulated](docs/status.md)**
+- **[Schema governance](docs/schema-governance.md)** · **[SEO & AI audit](docs/seo-audit.md)** · **[Reference graph](docs/reference-graph.md)** · **[Safety model](docs/safety.md)** · **[What is real vs simulated](docs/status.md)**
 - **[Demo script](docs/demo-script.md)** · **[Testing](docs/testing.md)** · **[Architecture](docs/architecture.md)**
 - [Full documentation index](docs/README.md)
 
